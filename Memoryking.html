@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memory King By Lionle O. Maharjan</title>
+<style>
+body {
+  font-family: 'Comic Sans MS', cursive, sans-serif;
+  background: linear-gradient(to bottom, #FFDEE9, #B5FFFC);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  margin: 0;
+  padding: 20px;
+  transition: background 0.5s;
+}
+
+h1 {
+  color: #FF6F61;
+  font-size: 2.5em;
+  text-shadow: 2px 2px #FFF3C4;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.controls {
+  margin-bottom: 20px;
+}
+
+button {
+  padding: 10px 15px;
+  margin: 0 5px;
+  font-size: 1.1em;
+  cursor: pointer;
+  border-radius: 10px;
+  border: none;
+  background: #FFD93D;
+  color: #333;
+  box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+  transition: transform 0.2s;
+}
+
+button:hover {
+  transform: scale(1.1);
+}
+
+.game-container {
+  display: grid;
+  grid-gap: 10px;
+  justify-content: center;
+  position: relative;
+}
+
+.card {
+  width: 100px;
+  height: 100px;
+  background: #8B4513; /* brown Minecraft-like color */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 2.5em;
+  color: white;
+  cursor: pointer;
+  border-radius: 15px;
+  box-shadow: 0 5px 10px rgba(0,0,0,0.3);
+  transition: transform 0.3s, background 0.3s;
+}
+
+.card.flipped {
+  transform: rotateY(360deg);
+  cursor: default;
+  background: #FFF3C4; /* show emoji background */
+}
+
+.card.matched {
+  animation: bounce 0.5s;
+  transform: scale(1.2);
+}
+
+@keyframes bounce {
+  0% {transform:scale(1);}
+  50% {transform:scale(1.3);}
+  100% {transform:scale(1.2);}
+}
+
+.confetti-piece {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  opacity: 0.8;
+  animation: fall 1s linear forwards;
+}
+
+@keyframes fall {
+  to { transform: translateY(200px) rotate(360deg); opacity: 0; }
+}
+</style>
+</head>
+<body>
+<h1>Memory King<br>By Lionle O. Maharjan</h1>
+
+<div class="controls">
+  <button id="restartBtn">Restart</button>
+  <button id="soundToggleBtn">Sound: On</button>
+</div>
+
+<div class="game-container" id="game"></div>
+
+<script>
+// Emoji sets per level
+const emojiLevels = [
+  ['🍎','🍌','🍇','🍉'],             // Level 1: Easy (4 pairs)
+  ['🐶','🐱','🦊','🐰','🐵','🐸'],   // Level 2: Medium (6 pairs)
+  ['🧸','🚗','🪀','🎨','🪁','🏀','🧩','🚂'], // Level 3: Hard (8 pairs)
+  ['🍎','🐶','🧸','🍌','🐱','🚗','🍇','🦊']   // Level 4+: Mixed
+];
+
+// Sounds
+const matchSoundSrc = "https://www.soundjay.com/button/sounds/button-3.mp3";
+const nomatchSoundSrc = "https://www.soundjay.com/button/sounds/button-10.mp3";
+let matchSound = new Audio(matchSoundSrc);
+let nomatchSound = new Audio(nomatchSoundSrc);
+let soundOn = true;
+
+let level = 1;
+let flippedCards = [];
+let matchedPairs = 0;
+let cards = [];
+
+const gameContainer = document.getElementById('game');
+const restartBtn = document.getElementById('restartBtn');
+const soundToggleBtn = document.getElementById('soundToggleBtn');
+
+function initLevel(level) {
+  gameContainer.innerHTML = '';
+  flippedCards = [];
+  matchedPairs = 0;
+
+  const symbols = emojiLevels[level-1] || emojiLevels[emojiLevels.length-1];
+  cards = [...symbols, ...symbols];
+  cards.sort(() => 0.5 - Math.random());
+
+  // Grid columns
+  const columns = symbols.length <= 4 ? 2 : 4;
+  gameContainer.style.gridTemplateColumns = `repeat(${columns}, 100px)`;
+
+  // Render cards
+  cards.forEach(symbol => {
+    const card = createCard(symbol);
+    gameContainer.appendChild(card);
+  });
+
+  // Background per level
+  const bgGradients = [
+    'linear-gradient(to bottom, #FFDEE9, #FEE6F0)',
+    'linear-gradient(to bottom, #AEEEEE, #B0E0E6)',
+    'linear-gradient(to bottom, #FFFACD, #FFD700)',
+    'linear-gradient(to bottom, #E0FFFF, #AFEEEE)'
+  ];
+  document.body.style.background = bgGradients[(level-1)%bgGradients.length];
+}
+
+function createCard(symbol) {
+  const card = document.createElement('div');
+  card.classList.add('card');
+  card.dataset.symbol = symbol;
+  card.textContent = ''; // nothing visible on back
+
+  card.addEventListener('click', () => {
+    if (card.classList.contains('flipped') || flippedCards.length === 2) return;
+
+    card.classList.add('flipped');
+    card.textContent = symbol;
+    flippedCards.push(card);
+
+    if (flippedCards.length === 2) setTimeout(checkMatch, 500);
+  });
+
+  return card;
+}
+
+function checkMatch() {
+  const [card1, card2] = flippedCards;
+  if (card1.dataset.symbol === card2.dataset.symbol) {
+    matchedPairs++;
+    card1.classList.add('matched');
+    card2.classList.add('matched');
+    if (soundOn) matchSound.play();
+    if (matchedPairs === cards.length / 2) setTimeout(levelComplete, 400);
+  } else {
+    if (soundOn) nomatchSound.play();
+    card1.classList.remove('flipped'); card1.textContent = '';
+    card2.classList.remove('flipped'); card2.textContent = '';
+  }
+  flippedCards = [];
+}
+
+function levelComplete() {
+  confettiEffect();
+  const container = document.createElement('div');
+  container.style.textAlign = 'center';
+  container.innerHTML = `
+    <h2>🎉 Level ${level} Complete! 🎉</h2>
+    <button id="playAgainBtn">Play Again</button>
+    <button id="nextLevelBtn">Next Level</button>
+  `;
+  gameContainer.innerHTML = '';
+  gameContainer.appendChild(container);
+
+  document.getElementById('playAgainBtn').addEventListener('click', () => initLevel(level));
+  document.getElementById('nextLevelBtn').addEventListener('click', () => {
+    level = (level < emojiLevels.length) ? level+1 : 1;
+    initLevel(level);
+  });
+}
+
+// Simple confetti effect
+function confettiEffect() {
+  for (let i=0;i<50;i++){
+    const confetti = document.createElement('div');
+    confetti.classList.add('confetti-piece');
+    confetti.style.left = Math.random()*window.innerWidth+'px';
+    confetti.style.background = `hsl(${Math.random()*360}, 100%, 50%)`;
+    document.body.appendChild(confetti);
+    setTimeout(()=>confetti.remove(),1000);
+  }
+}
+
+restartBtn.addEventListener('click', () => initLevel(level));
+soundToggleBtn.addEventListener('click', () => {
+  soundOn = !soundOn;
+  soundToggleBtn.textContent = `Sound: ${soundOn ? 'On' : 'Off'}`;
+});
+
+initLevel(level);
+</script>
+</body>
+</html>
